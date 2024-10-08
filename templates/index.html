@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Quiz Generator</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans">
+    <div class="container mx-auto p-6">
+        <h1 class="text-4xl text-center font-bold mb-6">AI-Based Real-Time Quiz Generator</h1>
+        
+        <form id="quizForm" class="mb-6">
+            <label for="category" class="block text-lg font-semibold mb-2">Choose a category:</label>
+            <select id="category" name="category" class="block w-full p-2 border rounded-lg mb-4">
+                <option value="Animals">Animals</option>
+                <option value="Sports">Sports</option>
+                <option value="Science">Science</option>
+                <option value="History">History</option>
+            </select>
+            <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition duration-300">Generate Quiz</button>
+        </form>
+
+        <div id="quiz" class="space-y-4"></div>
+        <div id="scoreDisplay" class="mt-6 p-4 bg-green-100 border-l-4 border-green-500 hidden"></div> <!-- Container for score display -->
+    </div>
+
+    <script>
+        document.getElementById('quizForm').onsubmit = function(e) {
+            e.preventDefault();
+            const category = document.getElementById('category').value;
+
+            fetch('/quiz', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({category: category})
+            }).then(response => response.json())
+            .then(data => {
+                console.log('Received Data:', data);
+                let output = '<h2 class="text-2xl font-bold">Your Quiz</h2>';
+                data.forEach((q, index) => {
+                    output += `<div class="p-4 bg-white shadow rounded-lg transition transform hover:scale-105"><p class="font-semibold">${index + 1}. ${q.question}</p>`;
+                    q.options.forEach((option) => {
+                        output += `<label class="block mb-2"><input type="radio" name="q${index}" value="${option}" class="mr-2">${option}</label>`;
+                    });
+                    output += `<input type="hidden" name="correctAnswer${index}" value="${q.answer}"><div id="feedback${index}" class="mt-2 text-red-600"></div></div>`;
+                });
+                output += `<button onclick="submitQuiz()" class="mt-4 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition duration-300">Submit</button>`;
+                document.getElementById('quiz').innerHTML = output;
+            }).catch(error => {
+                console.error('Error fetching quiz:', error);
+                alert('Error generating quiz. Please try again.');
+            });
+        }
+
+        function submitQuiz() {
+            const userAnswers = {};
+            const quizElements = document.querySelectorAll('#quiz input[type="radio"]:checked');
+
+            quizElements.forEach((element) => {
+                const questionIndex = element.name.replace('q', '');
+                userAnswers[questionIndex] = {
+                    selected: element.value,
+                    correct: document.querySelector(`input[name="correctAnswer${questionIndex}"]`).value
+                };
+            });
+
+            fetch('/submit_quiz', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(userAnswers)
+            }).then(response => response.json())
+            .then(data => {
+                displayScore(data.score, userAnswers); // Display the score and correct answers
+            });
+        }
+
+        function displayScore(score, userAnswers) {
+            let scoreDisplay = `<h3 class="text-xl font-semibold">Your score: ${score}</h3>`;
+            scoreDisplay += '<h4 class="font-semibold">Correct Answers:</h4>';
+            for (const questionIndex in userAnswers) {
+                const userAnswer = userAnswers[questionIndex];
+                scoreDisplay += `<p>Question ${parseInt(questionIndex) + 1}: `;
+                scoreDisplay += `Your Answer: <span class="${userAnswer.selected === userAnswer.correct ? 'text-green-500' : 'text-red-500'}">${userAnswer.selected}</span> `;
+                if (userAnswer.selected !== userAnswer.correct) {
+                    scoreDisplay += `(Correct Answer: <span class="font-bold">${userAnswer.correct}</span>)`;
+                }
+                scoreDisplay += '</p>';
+                // Show feedback directly below each question
+                const feedbackElement = document.getElementById(`feedback${questionIndex}`);
+                feedbackElement.innerHTML = userAnswer.selected === userAnswer.correct 
+                    ? '<span class="text-green-600">Correct!</span>' 
+                    : `<span class="text-red-600">Incorrect! Correct Answer: <strong>${userAnswer.correct}</strong></span>`;
+            }
+            document.getElementById('scoreDisplay').innerHTML = scoreDisplay;
+            document.getElementById('scoreDisplay').style.display = 'block'; // Show the score display
+            document.getElementById('quiz').innerHTML = ''; // Clear the quiz
+            document.getElementById('quizForm').reset(); // Reset the form
+        }
+    </script>
+</body>
+</html>
