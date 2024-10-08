@@ -89,5 +89,5 @@ This project is open-source and available under the MIT License.
 
 ## Author
 
-- [Your Name](https://github.com/prajjwallive)
+- [Prajjwal Adhikari](https://github.com/prajjwallive)
 
